@@ -12,48 +12,82 @@ namespace LogicaNegocio
 {
     public class UsuarioManejador
     {
-        public UsuarioAccesoDatos _usuarioAcessoDatos;
+        private UsuarioAccesoDatos _usuarioAccesoDatos;
 
         public UsuarioManejador()
         {
-            _usuarioAcessoDatos=new UsuarioAccesoDatos();
+            _usuarioAccesoDatos = new UsuarioAccesoDatos();
+
         }
 
-        public(bool EsValido,string Mensaje,Usuario usuarioEncontrado)ValidarLogin(string usuario,string clave)
+        public DataTable ObtenerUsuarios()
         {
-            if (string.IsNullOrWhiteSpace(usuario)||string.IsNullOrWhiteSpace(clave))
+            return _usuarioAccesoDatos.ListarUsuarios().Tables["usuarios"];
+        }
+
+        public DataTable BuscarUsuarios(string filtro)
+        {
+            return _usuarioAccesoDatos.BuscarUsuarios(filtro).Tables["usuarios"];
+        }
+
+        public string CrearUsuario(string nombre, string email, string clave)
+        {
+            int usuarioId = _usuarioAccesoDatos.AgregarUsuario(nombre, email, clave);
+            return $"Usuario creado correctamente. ID: {usuarioId}";
+        }
+
+        public string EliminarUsuario(int idUsuario)
+        {
+            return _usuarioAccesoDatos.EliminarUsuario(idUsuario);
+        }
+
+        public void GuardarPermiso(int usuarioId, string modulo, bool escritura, bool leer)
+        {
+            int moduloId = _usuarioAccesoDatos.ObtenerModuloId(modulo);
+            if (moduloId <= 0) return;
+
+            var permisoExistente = _usuarioAccesoDatos.ObtenerPermiso(usuarioId, moduloId);
+            if (permisoExistente != null)
+                _usuarioAccesoDatos.ActualizarPermiso(usuarioId, moduloId, escritura, leer);
+            else
+                _usuarioAccesoDatos.AsignarPermiso(usuarioId, moduloId, escritura, leer);
+        }
+        // Valida el login y carga los permisos del usuario
+        public (bool EsValido, string Mensaje, Usuario usuarioEncontrado) ValidarLogin(string usuario, string clave)
+        {
+            if (string.IsNullOrWhiteSpace(usuario) || string.IsNullOrWhiteSpace(clave))
+                return (false, "Por favor, ingrese usuario y contraseña", null);
+
+            DataSet ds = _usuarioAccesoDatos.ValidarCredenciales(usuario, clave);
+
+            if (ds.Tables.Count > 0 && ds.Tables[0].Rows.Count > 0)
             {
-                return(false,"Porfavor, ingrese el usuario y la contrasena",null);
-            }
-            DataSet ds=_usuarioAcessoDatos.ValidarCredenciales(usuario,clave);
-            if(ds.Tables.Count>0&& ds.Tables[0].Rows.Count>=1)
-            {
-                DataTable dt=ds.Tables[0];
+                DataTable dt = ds.Tables[0];
                 Usuario user = new Usuario();
-                foreach(DataRow row in dt.Rows)
+
+                foreach (DataRow row in dt.Rows)
                 {
                     if (user.Id == 0)
                     {
-                        user.Id = Convert.ToInt32(row["Id_Usuario"]);
+                        user.Id = Convert.ToInt32(row["ID_Usuario"]);
                         user.NombreUsuario = row["NombreUsuario"].ToString();
-                        user.Email = row["Email"].ToString();   
+                        user.Email = row["Email"].ToString();
                     }
-                    Permisos permisos = new Permisos
+
+                    // Cargar permisos
+                    Permisos permiso = new Permisos
                     {
                         NombreModulo = row["Nombre_Modulo"].ToString(),
                         PermisoEscritura = Convert.ToBoolean(row["Permiso_Escritura"]),
                         PermisoLeerAbrir = Convert.ToBoolean(row["Permiso_Leer_Abrir"])
                     };
-
-                    user.Permisos.Add(permisos);
+                    user.Permisos.Add(permiso);
                 }
-                return (true, "Inicio de sesion exitoso", user);
+
+                return (true, "Inicio de sesión exitoso", user);
             }
 
-            else
-            {
-                return (false, "Credenciales incorrectas, verificar usuario y contrasena", null);
-            }
+            return (false, "Credenciales incorrectas", null);
         }
     }
 }

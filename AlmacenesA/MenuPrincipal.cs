@@ -54,7 +54,9 @@ namespace AlmacenesA
 
         private void usuariosToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            MessageBox.Show("Entro a usuarios");
+
+            FrmUsuarios frm = new FrmUsuarios(_usuario); // le paso el usuario logueado
+            frm.ShowDialog();
         }
     }
 }
